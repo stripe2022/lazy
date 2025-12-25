@@ -53,11 +53,21 @@
       border-top: 1px solid #ddd;
     }
 
-    select, input {
+    select, input, textarea {
       width: 100%;
       padding: 0.7rem;
       margin: 0.5rem 0;
       font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    /* opcional: tarjetas en cola se ven mejor */
+    #colaLista > div {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1rem;
+      margin: 0.8rem 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
     }
   </style>
 </head>
@@ -71,6 +81,7 @@
 <!-- ================= INICIO ================= -->
 <section class="section active" id="inicio">
   <button onclick="abrirPantalla('pedido')">🛒 Nuevo pedido</button>
+  <button onclick="abrirPantalla('cola')">🗂️ Cola de pedidos</button>
 
   <button onclick="document.getElementById('importarProductosInput').click()">
     📦 Importar productos
@@ -119,75 +130,103 @@
   </select>
 
   <label>🔢 Cantidad</label>
-<input type="number" id="cantidad" min="1" value="1" />
+  <input type="number" id="cantidad" min="1" value="1" />
 
-<button onclick="agregarProducto()">➕ Añadir producto</button>
+  <button onclick="agregarProducto()">➕ Añadir producto</button>
 
-<div id="lista-productos"></div>
+  <div id="lista-productos"></div>
 
-<div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
-  <p><strong>🧾 Total productos:</strong> $<span id="total-productos-pedido">0</span></p>
-</div>
-<!-- ===== PARTE 4: Entrega + Envío + Total final ===== -->
-<div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
-  <p><strong>🚚 Entrega</strong></p>
+  <div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
+    <p><strong>🧾 Total productos:</strong> $<span id="total-productos-pedido">0</span></p>
+  </div>
 
-  <label style="display:block; margin:.4rem 0;">
-    <input type="radio" name="entrega" value="tienda" checked />
-    🏬 Recogida
-  </label>
+  <!-- ===== PARTE 4: Entrega + Envío + Total final ===== -->
+  <div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
+    <p><strong>🚚 Entrega</strong></p>
 
-  <label style="display:block; margin:.4rem 0;">
-    <input type="radio" name="entrega" value="domicilio" />
-    🛵 Domicilio
-  </label>
+    <label style="display:block; margin:.4rem 0;">
+      <input type="radio" name="entrega" value="tienda" checked />
+      🏬 Recogida
+    </label>
 
-  <div id="bloque-envio" style="display:none; margin-top:.7rem;">
-    <label>🛵 Costo de Mensajeria </label>
-    <input type="number" id="envio" min="0" step="1" placeholder="200" />
-    <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;">
-      <button type="button" onclick="setEnvio(200)" style="width:auto; padding:.6rem .8rem;">200</button>
-      <button type="button" onclick="setEnvio(300)" style="width:auto; padding:.6rem .8rem;">300</button>
-      <button type="button" onclick="setEnvio(350)" style="width:auto; padding:.6rem .8rem;">350</button>
-      <button type="button" onclick="setEnvio(400)" style="width:auto; padding:.6rem .8rem;">4`00</button>
+    <label style="display:block; margin:.4rem 0;">
+      <input type="radio" name="entrega" value="domicilio" />
+      🛵 Domicilio
+    </label>
+
+    <div id="bloque-envio" style="display:none; margin-top:.7rem;">
+      <label>🛵 Costo de Mensajeria</label>
+      <input type="number" id="envio" min="0" step="1" placeholder="200" />
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;">
+        <button type="button" onclick="setEnvio(200)" style="width:auto; padding:.6rem .8rem;">200</button>
+        <button type="button" onclick="setEnvio(300)" style="width:auto; padding:.6rem .8rem;">300</button>
+        <button type="button" onclick="setEnvio(350)" style="width:auto; padding:.6rem .8rem;">350</button>
+        <button type="button" onclick="setEnvio(400)" style="width:auto; padding:.6rem .8rem;">400</button>
+      </div>
     </div>
+
+    <hr style="margin:1rem 0; opacity:.3;">
+    <p><strong>💰 Total final:</strong> $<span id="total-final">0</span></p>
   </div>
 
-  <hr style="margin:1rem 0; opacity:.3;">
-  <p><strong>💰 Total final:</strong> $<span id="total-final">0</span></p>
-</div>
-<!-- ===== PARTE 5: Vista previa WhatsApp + Texto plano ===== -->
-<div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
-  <button type="button" onclick="generarVistaPrevia()" style="font-weight:bold;">
-    👀 Vista previa WhatsApp
-  </button>
+  <!-- ===== PARTE 5: Vista previa WhatsApp + Texto plano ===== -->
+  <div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
+    <button type="button" onclick="generarVistaPrevia()" style="font-weight:bold;">
+      👀 Vista previa WhatsApp
+    </button>
 
-  <button type="button" onclick="copiarVistaPrevia()" style="font-weight:bold;">
-    📋 Copiar WhatsApp
-  </button>
+    <button type="button" onclick="copiarVistaPrevia()" style="font-weight:bold;">
+      📋 Copiar WhatsApp
+    </button>
 
-  <div id="previewBox"
-       style="margin-top:1rem; padding:1rem; border-radius:10px; background:#fdf5f9; border:1px dashed #f48fb1; font-size:1rem; line-height:1.25;">
-    <div style="opacity:.7; text-align:center;">Aún no hay vista previa</div>
+    <div id="previewBox"
+         style="margin-top:1rem; padding:1rem; border-radius:10px; background:#fdf5f9; border:1px dashed #f48fb1; font-size:1rem; line-height:1.25;">
+      <div style="opacity:.7; text-align:center;">Aún no hay vista previa</div>
+    </div>
+
+    <hr style="margin:1rem 0; opacity:.3;">
+
+    <button type="button" onclick="generarTextoPlano()" style="font-weight:bold;">
+      🧾 Generar texto plano (impresión)
+    </button>
+
+    <button type="button" onclick="copiarTextoPlano()" style="font-weight:bold;">
+      📄 Copiar texto plano
+    </button>
+
+    <textarea id="textoPlano"
+              style="margin-top:1rem; width:100%; min-height:120px; font:12px/1.35 ui-monospace, Menlo, Consolas, monospace;"
+              placeholder="Aquí saldrá el texto plano..."></textarea>
   </div>
 
-  <hr style="margin:1rem 0; opacity:.3;">
-
-  <button type="button" onclick="generarTextoPlano()" style="font-weight:bold;">
-    🧾 Generar texto plano (impresión)
+  <!-- ===== PARTE 6: Botón Añadir a cola (limpia automático) ===== -->
+  <button type="button" onclick="anadirACola()" style="font-weight:bold;">
+    ➕ Añadir a cola (limpia automático)
   </button>
 
-  <button type="button" onclick="copiarTextoPlano()" style="font-weight:bold;">
-    📄 Copiar texto plano
-  </button>
+</section>
 
-  <textarea id="textoPlano"
-            style="margin-top:1rem; width:100%; min-height:120px; font:12px/1.35 ui-monospace, Menlo, Consolas, monospace;"
-            placeholder="Aquí saldrá el texto plano..."
-  ></textarea>
-</div>
+<!-- ================= SECCIÓN 6: COLA ================= -->
+<section class="section" id="cola">
+  <button class="back" onclick="abrirPantalla('inicio')">⬅️ Atrás</button>
 
+  <h2>🗂️ Cola de pedidos</h2>
 
+  <div id="colaLista"></div>
+
+  <div style="margin-top:1rem; background:#fff; padding:1rem; border-radius:8px;">
+    <button
+      type="button"
+      onclick="vaciarCola()"
+      style="background:#f44336;color:#fff;font-weight:bold;"
+    >
+      🗑 Vaciar cola
+    </button>
+    <button type="button" onclick="imprimirCola()" style="font-weight:bold;">
+  🖨 Imprimir cola
+</button>
+
+  </div>
 </section>
 
 <script>
@@ -199,6 +238,11 @@
     // Cuando entramos a Pantalla 1, avisamos al JS para llenar el select
     if (id === 'pedido') {
       document.dispatchEvent(new Event('pantalla1:open'));
+    }
+
+    // ✅ SECCIÓN 6: al entrar a cola, refrescar lista
+    if (id === 'cola') {
+      document.dispatchEvent(new Event('cola:open'));
     }
   }
 </script>

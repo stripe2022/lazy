@@ -480,3 +480,320 @@ function copiarTextoPlano() {
     .then(() => alert("✅ Texto plano copiado"))
     .catch(() => alert("❌ No se pudo copiar"));
 }
+
+// ================== PARTE 6: COLA DE PEDIDOS ==================
+const COLA_KEY = "barylie_cola_pedidos_v1";
+
+function uuidLite() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === "x" ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function leerCola() {
+  try {
+    const raw = localStorage.getItem(COLA_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarCola(arr) {
+  localStorage.setItem(COLA_KEY, JSON.stringify(arr || []));
+}
+
+function limpiarPedidoActual() {
+  carrito = [];
+  renderizarCarrito();
+  calcularTotales();
+
+  document.getElementById("clienteInfo") && (document.getElementById("clienteInfo").value = "");
+  document.getElementById("cantidad") && (document.getElementById("cantidad").value = "1");
+  limpiarBusquedaYSelect();
+
+  // entrega/envío
+  const radioTienda = document.querySelector('input[name="entrega"][value="tienda"]');
+  if (radioTienda) radioTienda.checked = true;
+
+  const envioInput = document.getElementById("envio");
+  if (envioInput) envioInput.value = "";
+
+  // vista previa / texto plano
+  const box = document.getElementById("previewBox");
+  if (box) box.innerHTML = `<div style="opacity:.7; text-align:center;">Aún no hay vista previa</div>`;
+
+  const ta = document.getElementById("textoPlano");
+  if (ta) ta.value = "";
+
+  // refresca UI entrega
+  if (typeof initEntregaUI === "function") initEntregaUI();
+}
+
+function buildPreviewTextFromPedido(pedido) {
+  // Usa el mismo estilo de generarVistaPrevia()
+  const lineas = [];
+  lineas.push(`🧾 *Barylie Pedido*`);
+  if (pedido.clienteInfo) lineas.push(`👤 ${pedido.clienteInfo}`);
+  lineas.push(``);
+  lineas.push(`🛍️ *Productos*`);
+
+  (pedido.items || []).forEach(it => {
+    const sub = (Number(it.precioVenta) || 0) * (Number(it.cantidad) || 0);
+    lineas.push(`• ${it.nombre}  x${it.cantidad}  =  $${Math.round(sub)}`);
+  });
+
+  lineas.push(``);
+  lineas.push(`💰 *Total productos:* $${Math.round(pedido.totalProductos || 0)}`);
+
+  if (pedido.entrega === "domicilio") {
+    lineas.push(`🛵 *Envío:* $${Math.round(pedido.envio || 0)}`);
+    lineas.push(`✅ *TOTAL FINAL:* $${Math.round(pedido.totalFinal || 0)}`);
+    lineas.push(`📍 Entrega: *Domicilio*`);
+  } else {
+    lineas.push(`📍 Entrega: *Recogida*`);
+    lineas.push(`✅ *TOTAL FINAL:* $${Math.round(pedido.totalFinal || 0)}`);
+  }
+
+  return lineas.join("\n");
+}
+
+function buildPlainTextFromPedido(pedido) {
+  const out = [];
+  out.push("BARYLIE - PEDIDO");
+  if (pedido.clienteInfo) out.push(`CLIENTE: ${pedido.clienteInfo}`);
+  out.push("");
+  out.push("PRODUCTOS:");
+  (pedido.items || []).forEach(it => {
+    const sub = (Number(it.precioVenta) || 0) * (Number(it.cantidad) || 0);
+    out.push(`- ${it.nombre} x${it.cantidad} = ${Math.round(sub)}`);
+  });
+  out.push("");
+  out.push(`TOTAL PRODUCTOS: ${Math.round(pedido.totalProductos || 0)}`);
+  if (pedido.entrega === "domicilio") {
+    out.push(`ENVIO: ${Math.round(pedido.envio || 0)}`);
+    out.push(`ENTREGA: DOMICILIO`);
+  } else {
+    out.push(`ENTREGA: RECOGIDA`);
+  }
+  out.push(`TOTAL FINAL: ${Math.round(pedido.totalFinal || 0)}`);
+  return out.join("\n");
+}
+
+function anadirACola() {
+  if (!carrito || carrito.length === 0) {
+    alert("Agrega al menos un producto.");
+    return;
+  }
+
+  const clienteInfo = (document.getElementById("clienteInfo")?.value || "").trim();
+  const entrega = getEntregaSeleccionada();
+  const envio = (entrega === "domicilio") ? normalizarEnvio(document.getElementById("envio")?.value) : 0;
+
+  const totalProductos = calcularTotalProductos();
+  const totalFinal = totalProductos + envio;
+
+  const pedido = {
+    id: uuidLite(),
+    ts: Date.now(),
+    clienteInfo,
+    entrega,
+    envio,
+    totalProductos,
+    totalFinal,
+    items: carrito.map(it => ({
+      codigo: it.codigo,
+      nombre: it.nombre,
+      precioVenta: Number(it.precioVenta) || 0,
+      cantidad: Number(it.cantidad) || 0,
+    })),
+  };
+
+  const cola = leerCola();
+  cola.push(pedido);
+  guardarCola(cola);
+
+  alert("✅ Pedido añadido a la cola");
+  limpiarPedidoActual();          // 👈 LIMPIA AUTOMÁTICO como pediste
+
+  // Si estás viendo la cola, refresca
+  renderCola();
+}
+
+function eliminarDeCola(id) {
+  const cola = leerCola().filter(p => p.id !== id);
+  guardarCola(cola);
+  renderCola();
+}
+
+function vaciarCola() {
+  if (!confirm("¿Vaciar toda la cola?")) return;
+  guardarCola([]);
+  renderCola();
+}
+
+function copiarTexto(txt, okMsg) {
+  navigator.clipboard.writeText(txt)
+    .then(() => alert(okMsg || "✅ Copiado"))
+    .catch(() => alert("❌ No se pudo copiar"));
+}
+
+function renderCola() {
+  const cont = document.getElementById("colaLista");
+  if (!cont) return;
+
+  const cola = leerCola();
+
+  if (cola.length === 0) {
+    cont.innerHTML = `<div style="opacity:.7; text-align:center; margin-top:1rem;">📭 Cola vacía</div>`;
+    return;
+  }
+
+  // Más nuevo arriba
+  const orden = cola.slice().sort((a,b) => (b.ts||0) - (a.ts||0));
+
+  cont.innerHTML = "";
+  orden.forEach((p, idx) => {
+    const fecha = new Date(p.ts || Date.now()).toLocaleString("es-ES");
+    const preview = buildPreviewTextFromPedido(p);
+    const plain = buildPlainTextFromPedido(p);
+
+    const card = document.createElement("div");
+    card.style.background = "#fff";
+    card.style.borderRadius = "12px";
+    card.style.padding = "1rem";
+    card.style.margin = "0.8rem 0";
+    card.style.boxShadow = "0 1px 4px rgba(0,0,0,.08)";
+
+    card.innerHTML = `
+      <div style="font-weight:bold; font-size:1.05rem;">📦 Pedido ${orden.length - idx}</div>
+      <div style="opacity:.8; margin-top:.2rem;">🕒 ${fecha}</div>
+      <div style="margin-top:.4rem;"><strong>👤</strong> ${p.clienteInfo || "—"}</div>
+      <div style="margin-top:.2rem;"><strong>📍</strong> ${p.entrega === "domicilio" ? "Domicilio" : "Recogida"} ${p.entrega === "domicilio" ? `(Envío $${Math.round(p.envio||0)})` : ""}</div>
+      <div style="margin-top:.2rem;"><strong>💰</strong> Total final: $${Math.round(p.totalFinal || 0)}</div>
+
+      <div style="display:flex; flex-direction:column; gap:.5rem; margin-top:1rem;">
+        <button type="button" style="font-weight:bold;" data-action="copy-wp">📋 Copiar WhatsApp</button>
+        <button type="button" style="font-weight:bold;" data-action="copy-plain">📄 Copiar texto plano</button>
+        <button type="button" style="background:#f44336;color:#fff;font-weight:bold;" data-action="del">🗑 Eliminar</button>
+      </div>
+    `;
+
+    // eventos
+    card.querySelector('[data-action="copy-wp"]').addEventListener("click", () => copiarTexto(preview, "✅ WhatsApp copiado"));
+    card.querySelector('[data-action="copy-plain"]').addEventListener("click", () => copiarTexto(plain, "✅ Texto plano copiado"));
+    card.querySelector('[data-action="del"]').addEventListener("click", () => eliminarDeCola(p.id));
+
+    cont.appendChild(card);
+  });
+}
+
+// Refrescar cola cuando entras a la pantalla
+document.addEventListener("cola:open", () => {
+  renderCola();
+});
+// ================== IMPRIMIR COLA (TODOS LOS PEDIDOS) ==================
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function imprimirCola() {
+  const cola = leerCola();
+  if (!cola || cola.length === 0) {
+    alert("📭 La cola está vacía");
+    return;
+  }
+
+  // Orden: más viejo primero
+  const orden = cola.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+  let html = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Imprimir</title>
+<style>
+  body{font-family:system-ui, Arial, sans-serif; margin:12mm; color:#111}
+  .pedido{break-inside:avoid; border:1px solid #ddd; border-radius:10px; padding:10px; margin:0 0 10px 0}
+  .row{display:flex; justify-content:space-between; gap:10px}
+  .cliente{font-weight:700; margin:6px 0}
+  ul{margin:6px 0 0 16px; padding:0}
+  li{margin:2px 0}
+  .totales{margin-top:8px; border-top:1px dashed #ccc; padding-top:8px}
+  .totales .row{margin:2px 0}
+  .tag{font-weight:700}
+  @media print{ body{margin:10mm} }
+</style>
+</head>
+<body>
+`;
+
+  orden.forEach((p) => {
+    const cliente = p.clienteInfo || "—";
+    const entregaTxt = p.entrega === "domicilio" ? "Domicilio" : "Recogida";
+
+    const items = Array.isArray(p.items) ? p.items : [];
+    const totalProd = Math.round(Number(p.totalProductos) || 0);
+    const envio = Math.round(Number(p.envio) || 0);
+    const totalFinal = Math.round(
+      Number(p.totalFinal) || (totalProd + (p.entrega === "domicilio" ? envio : 0))
+    );
+
+    html += `
+    <div class="pedido">
+      <div class="row">
+        <div class="cliente">👤 ${escapeHtml(cliente)}</div>
+        <div><span class="tag">Entrega:</span> ${escapeHtml(entregaTxt)}</div>
+      </div>
+
+      <div><span class="tag">Productos:</span></div>
+      <ul>
+        ${items.map(it => {
+          const nombre = it?.nombre || "";
+          const cant = Number(it?.cantidad) || 0;
+          const precio = Number(it?.precioVenta) || 0;
+          const sub = Math.round(precio * cant);
+          return `<li>${escapeHtml(nombre)} x${cant} — ${sub}</li>`;
+        }).join("")}
+      </ul>
+
+      <div class="totales">
+        <div class="row"><div><span class="tag">Total productos:</span></div><div>$${totalProd}</div></div>
+        ${p.entrega === "domicilio"
+          ? `<div class="row"><div><span class="tag">Envío:</span></div><div>$${envio}</div></div>`
+          : ``}
+        <div class="row" style="font-weight:800;"><div><span class="tag">Total final:</span></div><div>$${totalFinal}</div></div>
+      </div>
+    </div>
+`;
+  });
+
+  html += `
+</body>
+</html>
+`;
+
+  const w = window.open("", "_blank");
+  if (!w) {
+    alert("❌ No se pudo abrir la ventana de impresión (bloqueador de popups).");
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+
+  w.onload = () => {
+    w.focus();
+    w.print();
+  };
+}
