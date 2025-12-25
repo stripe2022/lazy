@@ -1,1 +1,179 @@
+<!DOCTYPE html> 
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Barylie Pedidos</title>
 
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      background: #f7f7f7;
+    }
+
+    header {
+      background: #f48fb1;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.3rem;
+      font-weight: bold;
+    }
+
+    .section {
+      display: none;
+      padding: 1rem;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    button {
+      padding: 1rem;
+      margin: 0.5rem 0;
+      width: 100%;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #ffb6c1;
+      cursor: pointer;
+    }
+
+    .back {
+      background: #ccc;
+    }
+
+    footer {
+      background: #fff;
+      padding: 0.8rem;
+      text-align: center;
+      font-weight: bold;
+      border-top: 1px solid #ddd;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 0.7rem;
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  🧾 Barylie Pedidos
+</header>
+
+<!-- ================= INICIO ================= -->
+<section class="section active" id="inicio">
+  <button onclick="abrirPantalla('pedido')">🛒 Nuevo pedido</button>
+
+  <button onclick="document.getElementById('importarProductosInput').click()">
+    📦 Importar productos
+  </button>
+
+  <input
+    type="file"
+    id="importarProductosInput"
+    accept=".json"
+    style="display:none"
+  />
+
+  <footer>
+    📦 Total productos cargados:
+    <span id="total-productos">0</span>
+  </footer>
+</section>
+
+<!-- ================= PANTALLA 1 ================= -->
+<section class="section" id="pedido">
+  <button class="back" onclick="abrirPantalla('inicio')">⬅️ Atrás</button>
+
+  <h2>🛒 Nuevo pedido</h2>
+
+  <!-- Campo único Cliente / Tel / Dirección -->
+  <label>🧍📞📍 Cliente / Tel / Dirección</label>
+  <input
+    type="text"
+    id="clienteInfo"
+    placeholder="Nombre · Teléfono · Dirección"
+  />
+
+  <!-- ✅ BUSCADOR (PARTE 2) -->
+  <label>🔎 Buscar producto</label>
+  <input
+    type="text"
+    id="busqueda"
+    placeholder="Escribe para filtrar..."
+    autocomplete="off"
+  />
+
+  <!-- Productos -->
+  <label>📦 Producto</label>
+  <select id="producto">
+    <option value="">-- Selecciona un producto --</option>
+  </select>
+
+  <label>🔢 Cantidad</label>
+<input type="number" id="cantidad" min="1" value="1" />
+
+<button onclick="agregarProducto()">➕ Añadir producto</button>
+
+<div id="lista-productos"></div>
+
+<div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
+  <p><strong>🧾 Total productos:</strong> $<span id="total-productos-pedido">0</span></p>
+</div>
+<!-- ===== PARTE 4: Entrega + Envío + Total final ===== -->
+<div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
+  <p><strong>🚚 Entrega</strong></p>
+
+  <label style="display:block; margin:.4rem 0;">
+    <input type="radio" name="entrega" value="tienda" checked />
+    🏬 Recogida
+  </label>
+
+  <label style="display:block; margin:.4rem 0;">
+    <input type="radio" name="entrega" value="domicilio" />
+    🛵 Domicilio
+  </label>
+
+  <div id="bloque-envio" style="display:none; margin-top:.7rem;">
+    <label>🛵 Costo de Mensajeria </label>
+    <input type="number" id="envio" min="0" step="1" placeholder="200" />
+    <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;">
+      <button type="button" onclick="setEnvio(200)" style="width:auto; padding:.6rem .8rem;">200</button>
+      <button type="button" onclick="setEnvio(300)" style="width:auto; padding:.6rem .8rem;">300</button>
+      <button type="button" onclick="setEnvio(350)" style="width:auto; padding:.6rem .8rem;">350</button>
+      <button type="button" onclick="setEnvio(400)" style="width:auto; padding:.6rem .8rem;">400</button>
+    </div>
+  </div>
+
+  <hr style="margin:1rem 0; opacity:.3;">
+  <p><strong>💰 Total final:</strong> $<span id="total-final">0</span></p>
+</div>
+
+</section>
+
+<script>
+  // === Navegación simple (como App1) ===
+  function abrirPantalla(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+
+    // Cuando entramos a Pantalla 1, avisamos al JS para llenar el select
+    if (id === 'pedido') {
+      document.dispatchEvent(new Event('pantalla1:open'));
+    }
+  }
+</script>
+
+<!-- === AQUÍ VA TU app.js === -->
+<script src="app.js"></script>
+
+</body>
+</html>
