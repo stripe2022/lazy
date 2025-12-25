@@ -1,254 +1,149 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css">
   <title>Barylie Pedidos</title>
-
-  <style>
-    body {
-      font-family: sans-serif;
-      margin: 0;
-      background: #f7f7f7;
-    }
-
-    header {
-      background: #f48fb1;
-      color: white;
-      padding: 1rem;
-      text-align: center;
-      font-size: 1.3rem;
-      font-weight: bold;
-    }
-
-    .section {
-      display: none;
-      padding: 1rem;
-    }
-
-    .section.active {
-      display: block;
-    }
-
-    button {
-      padding: 1rem;
-      margin: 0.5rem 0;
-      width: 100%;
-      font-size: 1rem;
-      border: none;
-      border-radius: 8px;
-      background: #ffb6c1;
-      cursor: pointer;
-    }
-
-    .back {
-      background: #ccc;
-    }
-
-    footer {
-      background: #fff;
-      padding: 0.8rem;
-      text-align: center;
-      font-weight: bold;
-      border-top: 1px solid #ddd;
-    }
-
-    select, input, textarea {
-      width: 100%;
-      padding: 0.7rem;
-      margin: 0.5rem 0;
-      font-size: 1rem;
-      box-sizing: border-box;
-    }
-
-    /* opcional: tarjetas en cola se ven mejor */
-    #colaLista > div {
-      background: #fff;
-      border-radius: 12px;
-      padding: 1rem;
-      margin: 0.8rem 0;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    }
-  </style>
 </head>
 
 <body>
 
-<header>
-  🧾 Barylie Pedidos
-</header>
+<header>🧾 Barylie Pedidos</header>
 
 <!-- ================= INICIO ================= -->
 <section class="section active" id="inicio">
-  <button onclick="abrirPantalla('pedido')">🛒 Nuevo pedido</button>
-  <button onclick="abrirPantalla('cola')">🗂️ Cola de pedidos</button>
+  <div class="wrap">
+    <button onclick="abrirPantalla('pedido')">🛒 Nuevo pedido</button>
+    <button onclick="abrirPantalla('cola')">🗂️ Cola de pedidos</button>
 
-  <button onclick="document.getElementById('importarProductosInput').click()">
-    📦 Importar productos
-  </button>
+    <button onclick="document.getElementById('importarProductosInput').click()">
+      📦 Importar productos
+    </button>
 
-  <input
-    type="file"
-    id="importarProductosInput"
-    accept=".json"
-    style="display:none"
-  />
+    <input type="file" id="importarProductosInput" accept=".json" style="display:none" />
 
-  <footer>
-    📦 Total productos cargados:
-    <span id="total-productos">0</span>
-  </footer>
+    <footer>
+      📦 Total productos cargados:
+      <span id="total-productos">0</span>
+    </footer>
+  </div>
 </section>
 
 <!-- ================= PANTALLA 1 ================= -->
 <section class="section" id="pedido">
-  <button class="back" onclick="abrirPantalla('inicio')">⬅️ Atrás</button>
+  <div class="wrap">
+    <button class="back" onclick="abrirPantalla('inicio')">⬅️ Atrás</button>
 
-  <h2>🛒 Nuevo pedido</h2>
+    <h2>🛒 Nuevo pedido</h2>
 
-  <!-- Campo único Cliente / Tel / Dirección -->
-  <label>🧍📞📍 Cliente / Tel / Dirección</label>
-  <input
-    type="text"
-    id="clienteInfo"
-    placeholder="Nombre · Teléfono · Dirección"
-  />
+    <label>🧍📞📍 Cliente / Tel / Dirección</label>
+    <input type="text" id="clienteInfo" placeholder="Nombre · Teléfono · Dirección" />
 
-  <!-- ✅ BUSCADOR (PARTE 2) -->
-  <label>🔎 Buscar producto</label>
-  <input
-    type="text"
-    id="busqueda"
-    placeholder="Escribe para filtrar..."
-    autocomplete="off"
-  />
+    <label>🔎 Buscar producto</label>
+    <input type="text" id="busqueda" placeholder="Escribe para filtrar..." autocomplete="off" />
 
-  <!-- Productos -->
-  <label>📦 Producto</label>
-  <select id="producto">
-    <option value="">-- Selecciona un producto --</option>
-  </select>
+    <label>📦 Producto</label>
+    <select id="producto">
+      <option value="">-- Selecciona un producto --</option>
+    </select>
 
-  <label>🔢 Cantidad</label>
-  <input type="number" id="cantidad" min="1" value="1" />
+    <label>🔢 Cantidad</label>
+    <input type="number" id="cantidad" min="1" value="1" />
 
-  <button onclick="agregarProducto()">➕ Añadir producto</button>
+    <button onclick="agregarProducto()">➕ Añadir producto</button>
 
-  <div id="lista-productos"></div>
+    <div id="lista-productos"></div>
 
-  <div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
-    <p><strong>🧾 Total productos:</strong> $<span id="total-productos-pedido">0</span></p>
-  </div>
-
-  <!-- ===== PARTE 4: Entrega + Envío + Total final ===== -->
-  <div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
-    <p><strong>🚚 Entrega</strong></p>
-
-    <label style="display:block; margin:.4rem 0;">
-      <input type="radio" name="entrega" value="tienda" checked />
-      🏬 Recogida
-    </label>
-
-    <label style="display:block; margin:.4rem 0;">
-      <input type="radio" name="entrega" value="domicilio" />
-      🛵 Domicilio
-    </label>
-
-    <div id="bloque-envio" style="display:none; margin-top:.7rem;">
-      <label>🛵 Costo de Mensajeria</label>
-      <input type="number" id="envio" min="0" step="1" placeholder="200" />
-      <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;">
-        <button type="button" onclick="setEnvio(200)" style="width:auto; padding:.6rem .8rem;">200</button>
-        <button type="button" onclick="setEnvio(300)" style="width:auto; padding:.6rem .8rem;">300</button>
-        <button type="button" onclick="setEnvio(350)" style="width:auto; padding:.6rem .8rem;">350</button>
-        <button type="button" onclick="setEnvio(400)" style="width:auto; padding:.6rem .8rem;">400</button>
+    <div class="card">
+      <div class="row">
+        <strong>🧾 Total productos:</strong>
+        <span>$<span id="total-productos-pedido">0</span></span>
       </div>
     </div>
 
-    <hr style="margin:1rem 0; opacity:.3;">
-    <p><strong>💰 Total final:</strong> $<span id="total-final">0</span></p>
-  </div>
+    <div class="card">
+      <p><strong>🚚 Entrega</strong></p>
 
-  <!-- ===== PARTE 5: Vista previa WhatsApp + Texto plano ===== -->
-  <div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
-    <button type="button" onclick="generarVistaPrevia()" style="font-weight:bold;">
-      👀 Vista previa WhatsApp
-    </button>
+      <label style="display:block; margin:.4rem 0;">
+        <input type="radio" name="entrega" value="tienda" checked />
+        🏬 Recogida
+      </label>
 
-    <button type="button" onclick="copiarVistaPrevia()" style="font-weight:bold;">
-      📋 Copiar WhatsApp
-    </button>
+      <label style="display:block; margin:.4rem 0;">
+        <input type="radio" name="entrega" value="domicilio" />
+        🛵 Domicilio
+      </label>
 
-    <div id="previewBox"
-         style="margin-top:1rem; padding:1rem; border-radius:10px; background:#fdf5f9; border:1px dashed #f48fb1; font-size:1rem; line-height:1.25;">
-      <div style="opacity:.7; text-align:center;">Aún no hay vista previa</div>
+      <div id="bloque-envio" style="display:none; margin-top:.7rem;">
+        <label>🛵 Costo de Mensajeria</label>
+        <input type="number" id="envio" min="0" step="1" placeholder="200" />
+
+        <div class="btn-row">
+          <button type="button" onclick="setEnvio(200)">200</button>
+          <button type="button" onclick="setEnvio(300)">300</button>
+          <button type="button" onclick="setEnvio(350)">350</button>
+          <button type="button" onclick="setEnvio(400)">400</button>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="row">
+        <strong>💰 Total final:</strong>
+        <span>$<span id="total-final">0</span></span>
+      </div>
     </div>
 
-    <hr style="margin:1rem 0; opacity:.3;">
+    <div class="card">
+      <button type="button" onclick="generarVistaPrevia()">👀 Vista previa WhatsApp</button>
+      <button type="button" onclick="copiarVistaPrevia()">📋 Copiar WhatsApp</button>
 
-    <button type="button" onclick="generarTextoPlano()" style="font-weight:bold;">
-      🧾 Generar texto plano (impresión)
-    </button>
+      <div id="previewBox">
+        <div style="opacity:.7; text-align:center;">Aún no hay vista previa</div>
+      </div>
 
-    <button type="button" onclick="copiarTextoPlano()" style="font-weight:bold;">
-      📄 Copiar texto plano
-    </button>
+      <hr>
 
-    <textarea id="textoPlano"
-              style="margin-top:1rem; width:100%; min-height:120px; font:12px/1.35 ui-monospace, Menlo, Consolas, monospace;"
-              placeholder="Aquí saldrá el texto plano..."></textarea>
+      <button type="button" onclick="generarTextoPlano()">🧾 Generar texto plano (impresión)</button>
+      <button type="button" onclick="copiarTextoPlano()">📄 Copiar texto plano</button>
+
+      <textarea id="textoPlano" placeholder="Aquí saldrá el texto plano..."></textarea>
+    </div>
+
+    <button type="button" onclick="anadirACola()">➕ Añadir a cola (limpia automático)</button>
   </div>
-
-  <!-- ===== PARTE 6: Botón Añadir a cola (limpia automático) ===== -->
-  <button type="button" onclick="anadirACola()" style="font-weight:bold;">
-    ➕ Añadir a cola (limpia automático)
-  </button>
-
 </section>
 
-<!-- ================= SECCIÓN 6: COLA ================= -->
+<!-- ================= COLA ================= -->
 <section class="section" id="cola">
-  <button class="back" onclick="abrirPantalla('inicio')">⬅️ Atrás</button>
+  <div class="wrap">
+    <button class="back" onclick="abrirPantalla('inicio')">⬅️ Atrás</button>
 
-  <h2>🗂️ Cola de pedidos</h2>
+    <h2>🗂️ Cola de pedidos</h2>
 
-  <div id="colaLista"></div>
+    <div id="colaLista"></div>
 
-  <div style="margin-top:1rem; background:#fff; padding:1rem; border-radius:8px;">
-    <button
-      type="button"
-      onclick="vaciarCola()"
-      style="background:#f44336;color:#fff;font-weight:bold;"
-    >
-      🗑 Vaciar cola
-    </button>
-    <button type="button" onclick="imprimirCola()" style="font-weight:bold;">
-  🖨 Imprimir cola
-</button>
+    <div class="card">
+      <button type="button" onclick="imprimirCola()">🖨 Imprimir cola</button>
 
+      <button type="button" onclick="vaciarCola()" class="danger">
+        🗑 Vaciar cola
+      </button>
+    </div>
   </div>
 </section>
 
 <script>
-  // === Navegación simple (como App1) ===
   function abrirPantalla(id) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 
-    // Cuando entramos a Pantalla 1, avisamos al JS para llenar el select
-    if (id === 'pedido') {
-      document.dispatchEvent(new Event('pantalla1:open'));
-    }
-
-    // ✅ SECCIÓN 6: al entrar a cola, refrescar lista
-    if (id === 'cola') {
-      document.dispatchEvent(new Event('cola:open'));
-    }
+    if (id === 'pedido') document.dispatchEvent(new Event('pantalla1:open'));
+    if (id === 'cola') document.dispatchEvent(new Event('cola:open'));
   }
 </script>
 
-<!-- === AQUÍ VA TU app.js === -->
 <script src="app.js"></script>
-
 </body>
 </html>
