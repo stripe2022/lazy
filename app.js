@@ -712,7 +712,6 @@ function imprimirCola() {
     return;
   }
 
-  // Orden: más viejo primero
   const orden = cola.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
   let html = `
@@ -723,16 +722,60 @@ function imprimirCola() {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Imprimir</title>
 <style>
-  body{font-family:system-ui, Arial, sans-serif; margin:12mm; color:#111}
-  .pedido{break-inside:avoid; border:1px solid #ddd; border-radius:10px; padding:10px; margin:0 0 10px 0}
-  .row{display:flex; justify-content:space-between; gap:10px}
-  .cliente{font-weight:700; margin:6px 0}
-  ul{margin:6px 0 0 16px; padding:0}
-  li{margin:2px 0}
-  .totales{margin-top:8px; border-top:1px dashed #ccc; padding-top:8px}
-  .totales .row{margin:2px 0}
-  .tag{font-weight:700}
-  @media print{ body{margin:10mm} }
+  /* ===== OPTIMIZADO PARA PAPEL ===== */
+  @page {
+    margin: 6mm;              /* 👈 margen mínimo */
+  }
+
+  body{
+    font-family: system-ui, Arial, sans-serif;
+    margin: 0;
+    color: #111;
+    font-size: 11px;          /* 👈 texto más compacto */
+    line-height: 1.15;
+  }
+
+  .pedido{
+    break-inside: avoid;
+    border: 1px solid #bbb;
+    border-radius: 6px;       /* 👈 menos curva */
+    padding: 6px;             /* 👈 menos padding */
+    margin: 0 0 6px 0;        /* 👈 menos separación */
+  }
+
+  .row{
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .cliente{
+    font-weight: 700;
+    margin: 2px 0 4px 0;
+  }
+
+  ul{
+    margin: 2px 0 4px 10px;   /* 👈 menos sangría */
+    padding: 0;
+  }
+
+  li{
+    margin: 1px 0;
+  }
+
+  .totales{
+    margin-top: 4px;
+    border-top: 1px dashed #aaa;
+    padding-top: 4px;
+  }
+
+  .totales .row{
+    margin: 1px 0;
+  }
+
+  .tag{
+    font-weight: 700;
+  }
 </style>
 </head>
 <body>
@@ -785,9 +828,10 @@ function imprimirCola() {
 
   const w = window.open("", "_blank");
   if (!w) {
-    alert("❌ No se pudo abrir la ventana de impresión (bloqueador de popups).");
+    alert("❌ No se pudo abrir la ventana de impresión.");
     return;
   }
+
   w.document.open();
   w.document.write(html);
   w.document.close();
