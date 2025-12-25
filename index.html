@@ -149,13 +149,44 @@
       <button type="button" onclick="setEnvio(200)" style="width:auto; padding:.6rem .8rem;">200</button>
       <button type="button" onclick="setEnvio(300)" style="width:auto; padding:.6rem .8rem;">300</button>
       <button type="button" onclick="setEnvio(350)" style="width:auto; padding:.6rem .8rem;">350</button>
-      <button type="button" onclick="setEnvio(400)" style="width:auto; padding:.6rem .8rem;">400</button>
+      <button type="button" onclick="setEnvio(400)" style="width:auto; padding:.6rem .8rem;">4`00</button>
     </div>
   </div>
 
   <hr style="margin:1rem 0; opacity:.3;">
   <p><strong>💰 Total final:</strong> $<span id="total-final">0</span></p>
 </div>
+<!-- ===== PARTE 5: Vista previa WhatsApp + Texto plano ===== -->
+<div style="margin-top: 1rem; background:#fff; padding:1rem; border-radius:8px;">
+  <button type="button" onclick="generarVistaPrevia()" style="font-weight:bold;">
+    👀 Vista previa WhatsApp
+  </button>
+
+  <button type="button" onclick="copiarVistaPrevia()" style="font-weight:bold;">
+    📋 Copiar WhatsApp
+  </button>
+
+  <div id="previewBox"
+       style="margin-top:1rem; padding:1rem; border-radius:10px; background:#fdf5f9; border:1px dashed #f48fb1; font-size:1rem; line-height:1.25;">
+    <div style="opacity:.7; text-align:center;">Aún no hay vista previa</div>
+  </div>
+
+  <hr style="margin:1rem 0; opacity:.3;">
+
+  <button type="button" onclick="generarTextoPlano()" style="font-weight:bold;">
+    🧾 Generar texto plano (impresión)
+  </button>
+
+  <button type="button" onclick="copiarTextoPlano()" style="font-weight:bold;">
+    📄 Copiar texto plano
+  </button>
+
+  <textarea id="textoPlano"
+            style="margin-top:1rem; width:100%; min-height:120px; font:12px/1.35 ui-monospace, Menlo, Consolas, monospace;"
+            placeholder="Aquí saldrá el texto plano..."
+  ></textarea>
+</div>
+
 
 </section>
 
