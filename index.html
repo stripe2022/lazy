@@ -139,6 +139,24 @@
     </div>
   </div>
 </section>
+<script>
+  // Registro del Service Worker (blindado)
+  if ('serviceWorker' in navigator) {
+    // No hace falta esperar a window.load
+    window.addEventListener('DOMContentLoaded', () => {
+      navigator.serviceWorker.register('/lazy/service-worker.js', {
+        updateViaCache: 'all',
+        scope: '/lazy/'
+      }).then(reg => {
+        console.log('✅ SW Lazy Barylie registrado:', reg.scope);
+        // ⚠️ Muy importante: NO llames reg.update()
+      }).catch(err => {
+        console.error('❌ Error registrando SW Lazy Barylie:', err);
+      });
+    });
+  }
+</script>
+
 
 <script>
   function abrirPantalla(id) {
