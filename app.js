@@ -669,22 +669,21 @@ function renderCola() {
     card.style.boxShadow = "0 1px 4px rgba(0,0,0,.08)";
 
     card.innerHTML = `
-      <div style="font-weight:bold; font-size:1.05rem;">📦 Pedido ${orden.length - idx}</div>
-      <div style="opacity:.8; margin-top:.2rem;">🕒 ${fecha}</div>
-      <div style="margin-top:.4rem;"><strong>👤</strong> ${p.clienteInfo || "—"}</div>
-      <div style="margin-top:.2rem;"><strong>📍</strong> ${p.entrega === "domicilio" ? "Domicilio" : "Recogida"} ${p.entrega === "domicilio" ? `(Envío $${Math.round(p.envio||0)})` : ""}</div>
-      <div style="margin-top:.2rem;"><strong>💰</strong> Total final: $${Math.round(p.totalFinal || 0)}</div>
+  <div style="font-weight:bold; font-size:1.05rem;">📦 Pedido ${orden.length - idx}</div>
+  <div style="opacity:.8; margin-top:.2rem;">🕒 ${fecha}</div>
+  <div style="margin-top:.4rem;"><strong>👤</strong> ${p.clienteInfo || "—"}</div>
+  <div style="margin-top:.2rem;"><strong>📍</strong> ${p.entrega === "domicilio" ? "Domicilio" : "Recogida"} ${p.entrega === "domicilio" ? `(Envío $${Math.round(p.envio||0)})` : ""}</div>
+  <div style="margin-top:.2rem;"><strong>💰</strong> Total final: $${Math.round(p.totalFinal || 0)}</div>
 
-      <div style="display:flex; flex-direction:column; gap:.5rem; margin-top:1rem;">
-        <button type="button" style="font-weight:bold;" data-action="copy-wp">📋 Copiar WhatsApp</button>
-        <button type="button" style="font-weight:bold;" data-action="copy-plain">📄 Copiar texto plano</button>
-        <button type="button" style="background:#f44336;color:#fff;font-weight:bold;" data-action="del">🗑 Eliminar</button>
-      </div>
-    `;
+  <div style="display:flex; flex-direction:column; gap:.5rem; margin-top:1rem;">
+    <button type="button" style="font-weight:bold;" data-action="copy-wp">📋 Copiar WhatsApp</button>
+    <button type="button" style="background:#f44336;color:#fff;font-weight:bold;" data-action="del">🗑 Eliminar</button>
+  </div>
+`;
 
     // eventos
     card.querySelector('[data-action="copy-wp"]').addEventListener("click", () => copiarTexto(preview, "✅ WhatsApp copiado"));
-    card.querySelector('[data-action="copy-plain"]').addEventListener("click", () => copiarTexto(plain, "✅ Texto plano copiado"));
+    
     card.querySelector('[data-action="del"]').addEventListener("click", () => eliminarDeCola(p.id));
 
     cont.appendChild(card);

@@ -102,9 +102,6 @@
       <div id="previewBox">
         <div style="opacity:.7; text-align:center;">Aún no hay vista previa</div>
       </div>
-
-     
-
     </div>
 
     <button type="button" onclick="anadirACola()">➕ Añadir a cola (limpia automático)</button>
@@ -121,6 +118,16 @@
     <div id="colaLista"></div>
 
     <div class="card">
+      <!-- ✅ NUEVO: imprimir por separado -->
+      <button type="button" onclick="imprimirColaPorTipo('domicilio')">
+        🖨 Imprimir domicilios
+      </button>
+
+      <button type="button" onclick="imprimirColaPorTipo('tienda')">
+        🖨 Imprimir recogidas
+      </button>
+
+      <!-- (lo de siempre) -->
       <button type="button" onclick="imprimirCola()">🖨 Imprimir cola</button>
 
       <button type="button" onclick="vaciarCola()" class="danger">
