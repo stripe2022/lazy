@@ -177,12 +177,29 @@ async function buildHtmlFromPedidosOnlineFirst(ctx, lista) {
     padding: 6px;
     margin: 0 0 6px 0;
   }
+    .pedido{
+  position: relative; /* 👈 necesario para anclar el QR dentro del pedido */
+}
+
+/* QR flotante (no ocupa espacio) */
+.qr-float{
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width:70px;  /* o 60px */
+  height:70px; /* o 60px */
+}
+
+
   .row{ display:flex; justify-content:space-between; gap:6px; }
   .cliente{ font-weight:700; margin:2px 0 4px 0; }
   ul{ margin:2px 0 4px 10px; padding:0; }
   li{ margin:1px 0; }
   .totales{ margin-top:4px; border-top:1px dashed #aaa; padding-top:4px; }
   .totales .row{ margin:1px 0; }
+  /* Reservar espacio del QR a la derecha en los totales */
+
+
   .tag{ font-weight:700; }
 
   .qrbox{
@@ -253,56 +270,51 @@ async function buildHtmlFromPedidosOnlineFirst(ctx, lista) {
     }
 
     html += `
-    <div class="pedido">
-      <div class="row" style="align-items:flex-start;">
-  <div style="flex:1;">
-    <div class="cliente">👤 ${escapeHtml(cliente)}</div>
-    <div><span class="tag">Entrega:</span> ${escapeHtml(entregaTxt)}</div>
-  </div>
+<div class="pedido ${qrText ? "has-qr" : ""}">
 
   ${
     qrText
       ? `
-      <div style="text-align:right;">
+      <div class="qr-float">
         <img
           src="${buildQrImageUrl(qrText, 80)}"
           alt="QR"
-          style="width:70px;height:70px;"
+          style="width:70px;height:70px;display:block;"
         />
       </div>
       `
       : ``
   }
-</div>
 
-
-      <div><span class="tag">Productos:</span></div>
-      <ul>
-        ${items
-          .map((it) => {
-            const nombre = it?.nombre || "";
-            const cant = Number(it?.cantidad) || 0;
-            const precio = Number(it?.precioVenta) || 0;
-            const sub = Math.round(precio * cant);
-            return `<li>${escapeHtml(nombre)} x${cant} — ${sub}</li>`;
-          })
-          .join("")}
-      </ul>
-
-      <div class="totales">
-        <div class="row"><div><span class="tag">Total productos:</span></div><div>$${totalProd}</div></div>
-        ${
-          p.entrega === "domicilio"
-            ? `<div class="row"><div><span class="tag">Envío:</span></div><div>$${envio}</div></div>`
-            : ``
-        }
-        <div class="row" style="font-weight:800;"><div><span class="tag">Total final:</span></div><div>$${totalFinal}</div></div>
-      </div>
-
-      
-
+  <div class="row" style="align-items:flex-start;">
+    <div style="flex:1;">
+      <div class="cliente">👤 ${escapeHtml(cliente)}</div>
+      <div><span class="tag">Entrega:</span> ${escapeHtml(entregaTxt)}</div>
     </div>
+  </div>
+
+  <div><span class="tag">Productos:</span></div>
+  <ul>
+    ${items.map((it) => {
+      const nombre = it?.nombre || "";
+      const cant = Number(it?.cantidad) || 0;
+      const precio = Number(it?.precioVenta) || 0;
+      const sub = Math.round(precio * cant);
+      return `<li>${escapeHtml(nombre)} x${cant} — ${sub}</li>`;
+    }).join("")}
+  </ul>
+
+  <div class="totales">
+    <div class="row"><div><span class="tag">Total productos:</span></div><div>$${totalProd}</div></div>
+    ${p.entrega === "domicilio"
+      ? `<div class="row"><div><span class="tag">Envío:</span></div><div>$${envio}</div></div>`
+      : ``}
+    <div class="row" style="font-weight:800;"><div><span class="tag">Total final:</span></div><div>$${totalFinal}</div></div>
+  </div>
+
+</div>
 `;
+
   }
 
   html += `
