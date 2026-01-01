@@ -254,10 +254,27 @@ async function buildHtmlFromPedidosOnlineFirst(ctx, lista) {
 
     html += `
     <div class="pedido">
-      <div class="row">
-        <div class="cliente">👤 ${escapeHtml(cliente)}</div>
-        <div><span class="tag">Entrega:</span> ${escapeHtml(entregaTxt)}</div>
+      <div class="row" style="align-items:flex-start;">
+  <div style="flex:1;">
+    <div class="cliente">👤 ${escapeHtml(cliente)}</div>
+    <div><span class="tag">Entrega:</span> ${escapeHtml(entregaTxt)}</div>
+  </div>
+
+  ${
+    qrText
+      ? `
+      <div style="text-align:right;">
+        <img
+          src="${buildQrImageUrl(qrText, 80)}"
+          alt="QR"
+          style="width:70px;height:70px;"
+        />
       </div>
+      `
+      : ``
+  }
+</div>
+
 
       <div><span class="tag">Productos:</span></div>
       <ul>
@@ -282,31 +299,7 @@ async function buildHtmlFromPedidosOnlineFirst(ctx, lista) {
         <div class="row" style="font-weight:800;"><div><span class="tag">Total final:</span></div><div>$${totalFinal}</div></div>
       </div>
 
-      <div class="qrbox" style="text-align:center;">
-  ${
-    qrText
-      ? `
-        <div style="margin:6px 0;">
-        <img
-         src="${buildQrImageUrl(qrText, 70)}"
-        alt="QR"
-        style="width:60px;height:60px;"
-        />
-
-
-        </div>
-        <div class="mono" style="font-size:9px;opacity:.7;">
-          ${escapeHtml(qrText)}
-        </div>
-      `
-      : `
-        <div class="warn">SIN QR (offline o error)</div>
-        <div class="mono" style="opacity:.75;">
-          ${escapeHtml(qrErr || "desconocido")}
-        </div>
-      `
-  }
-</div>
+      
 
     </div>
 `;
