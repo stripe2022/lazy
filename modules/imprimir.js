@@ -1,6 +1,7 @@
 // modules/imprimir.js
 import { leerCola } from "./cola.js";
 
+// ================== utils ==================
 function escapeHtml(s) {
   return String(s ?? "")
     .replaceAll("&", "&amp;")
@@ -10,7 +11,120 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-function buildHtmlFromPedidos(lista) {
+function isOnlineNow() {
+  return navigator.onLine === true;
+}
+
+// Tus precios son enteros ✅
+function getUnitPrice(it) {
+  const n = Number(it?.precioVenta ?? it?.precio ?? it?.price ?? it?.unit_price ?? 0);
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
+}
+
+// En tu JSON el costo viene como precioCosto ✅
+function getUnitCost(it) {
+  const n = Number(it?.precioCosto ?? it?.costo ?? it?.unit_cost ?? it?.cost ?? 0);
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
+}
+
+function mapEntregaToType(entrega) {
+  return String(entrega) === "domicilio" ? "delivery" : "pickup";
+}
+
+function buildPayloadFromPedido(p) {
+  const type = mapEntregaToType(p?.entrega);
+
+  const delivery_fee =
+    type === "delivery" ? Math.max(0, Math.trunc(Number(p?.envio) || 0)) : 0;
+
+  const itemsRaw = Array.isArray(p?.items) ? p.items : [];
+  const items = itemsRaw
+    .map((it) => ({
+      product_code: it?.codigo != null ? String(it.codigo) : null,
+      name: String(it?.nombre || "").trim(),
+      unit_price: getUnitPrice(it),
+      unit_cost: getUnitCost(it),
+      qty: Math.max(1, parseInt(it?.cantidad, 10) || 1),
+    }))
+    .filter((x) => x.name && x.qty > 0);
+
+  return {
+    type,
+    info: String(p?.clienteInfo || "").trim(),
+    delivery_fee,
+    note: "",
+    source_app: "lazy",
+    items,
+  };
+}
+
+function getPrinterKeyFromStorage() {
+  // Guardas aquí la key (tú ya la estabas usando así)
+  return localStorage.getItem("LAZY_PRINTER_KEY") || "";
+}
+
+async function createReceiptInSupabase(ctx, payload) {
+  const supabase = ctx?.supabase;
+
+  if (!supabase) throw new Error("Supabase client no existe en ctx");
+  if (!isOnlineNow()) throw new Error("Offline (sin internet)");
+  if (!payload?.items?.length) throw new Error("Payload sin items");
+
+  const PRINTER_KEY = getPrinterKeyFromStorage();
+  if (!PRINTER_KEY || PRINTER_KEY.length < 16) {
+    throw new Error("PRINTER_KEY no encontrada en localStorage (LAZY_PRINTER_KEY)");
+  }
+
+  console.log("🟣[LAZY/SUPABASE] RPC lb_public_create_receipt ->", {
+    type: payload.type,
+    items: payload.items.length,
+    delivery_fee: payload.delivery_fee,
+    infoLen: (payload.info || "").length,
+  });
+
+  const { data, error } = await supabase.rpc("lb_public_create_receipt", {
+    p_printer_key: PRINTER_KEY,
+    p_payload: payload,
+  });
+
+  if (error) {
+    console.error("🔴[LAZY/SUPABASE] RPC error:", error);
+    throw new Error(error.message || "RPC error");
+  }
+
+  // Esperamos {receipt_id, token, ...}
+  const receipt_id = data?.receipt_id;
+  const token = data?.token;
+
+  if (!receipt_id || !token) {
+    console.warn("🟠[LAZY/SUPABASE] Respuesta sin receipt_id/token:", data);
+    throw new Error("Respuesta RPC sin receipt_id/token");
+  }
+
+  console.log("🟢[LAZY/SUPABASE] Recibo creado:", { receipt_id, token });
+  return { receipt_id, token, raw: data };
+}
+
+// ================== impresión ==================
+function openPrintWindow(html) {
+  const w = window.open("", "_blank");
+  if (!w) {
+    alert("❌ No se pudo abrir la ventana de impresión.");
+    return;
+  }
+
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+
+  w.onload = () => {
+    w.focus();
+    w.print();
+  };
+}
+
+// Genera HTML PERO ahora incluye QR (si se pudo crear receipt)
+async function buildHtmlFromPedidosOnlineFirst(ctx, lista) {
   const orden = (lista || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
   let html = `
@@ -43,12 +157,24 @@ function buildHtmlFromPedidos(lista) {
   .totales{ margin-top:4px; border-top:1px dashed #aaa; padding-top:4px; }
   .totales .row{ margin:1px 0; }
   .tag{ font-weight:700; }
+
+  .qrbox{
+    margin-top:6px;
+    border-top:1px dashed #aaa;
+    padding-top:6px;
+    font-size:10px;
+  }
+  .mono{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    word-break: break-all;
+  }
+  .warn{ color:#b00020; font-weight:800; }
 </style>
 </head>
 <body>
 `;
 
-  orden.forEach((p) => {
+  for (const p of orden) {
     const cliente = p.clienteInfo || "—";
     const entregaTxt = p.entrega === "domicilio" ? "Domicilio" : "Recogida";
 
@@ -59,6 +185,18 @@ function buildHtmlFromPedidos(lista) {
       Number(p.totalFinal) || (totalProd + (p.entrega === "domicilio" ? envio : 0))
     );
 
+    let qrText = "";
+    let qrErr = "";
+
+    try {
+      const payload = buildPayloadFromPedido(p);
+      const created = await createReceiptInSupabase(ctx, payload);
+      qrText = `LB|${created.receipt_id}|${created.token}`;
+    } catch (e) {
+      qrErr = e?.message || String(e);
+      console.warn("🟠[PRINT] Sin QR (fallback):", qrErr);
+    }
+
     html += `
     <div class="pedido">
       <div class="row">
@@ -68,25 +206,40 @@ function buildHtmlFromPedidos(lista) {
 
       <div><span class="tag">Productos:</span></div>
       <ul>
-        ${items.map(it => {
-          const nombre = it?.nombre || "";
-          const cant = Number(it?.cantidad) || 0;
-          const precio = Number(it?.precioVenta) || 0;
-          const sub = Math.round(precio * cant);
-          return `<li>${escapeHtml(nombre)} x${cant} — ${sub}</li>`;
-        }).join("")}
+        ${items
+          .map((it) => {
+            const nombre = it?.nombre || "";
+            const cant = Number(it?.cantidad) || 0;
+            const precio = Number(it?.precioVenta) || 0;
+            const sub = Math.round(precio * cant);
+            return `<li>${escapeHtml(nombre)} x${cant} — ${sub}</li>`;
+          })
+          .join("")}
       </ul>
 
       <div class="totales">
         <div class="row"><div><span class="tag">Total productos:</span></div><div>$${totalProd}</div></div>
-        ${p.entrega === "domicilio"
-          ? `<div class="row"><div><span class="tag">Envío:</span></div><div>$${envio}</div></div>`
-          : ``}
+        ${
+          p.entrega === "domicilio"
+            ? `<div class="row"><div><span class="tag">Envío:</span></div><div>$${envio}</div></div>`
+            : ``
+        }
         <div class="row" style="font-weight:800;"><div><span class="tag">Total final:</span></div><div>$${totalFinal}</div></div>
+      </div>
+
+      <div class="qrbox">
+        ${
+          qrText
+            ? `<div><span class="tag">QR:</span> <span class="mono">${escapeHtml(
+                qrText
+              )}</span></div>`
+            : `<div class="warn">SIN QR (offline o error)</div>
+               <div class="mono" style="opacity:.75;">${escapeHtml(qrErr || "desconocido")}</div>`
+        }
       </div>
     </div>
 `;
-  });
+  }
 
   html += `
 </body>
@@ -95,51 +248,39 @@ function buildHtmlFromPedidos(lista) {
   return html;
 }
 
-function openPrintWindow(html) {
-  const w = window.open("", "_blank");
-  if (!w) {
-    alert("❌ No se pudo abrir la ventana de impresión.");
-    return;
-  }
+// ================== API pública ==================
 
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-
-  w.onload = () => {
-    w.focus();
-    w.print();
-  };
-}
-
-// ✅ imprime TODO
-export function imprimirCola() {
+// ✅ imprime TODO (online-first)
+export async function imprimirCola(ctx) {
   const cola = leerCola();
   if (!cola || cola.length === 0) {
     alert("📭 La cola está vacía");
     return;
   }
-  console.log("🖨️ imprimirCola() pedidos:", cola.length);
-  openPrintWindow(buildHtmlFromPedidos(cola));
+  console.log("🖨️ imprimirCola() pedidos:", cola.length, "online:", isOnlineNow());
+  const html = await buildHtmlFromPedidosOnlineFirst(ctx, cola);
+  openPrintWindow(html);
 }
 
 // ✅ imprime por tipo: 'domicilio' o 'tienda'
-export function imprimirColaPorTipo(tipo) {
+export async function imprimirColaPorTipo(ctx, tipo) {
   const cola = leerCola();
   if (!cola || cola.length === 0) {
     alert("📭 La cola está vacía");
     return;
   }
 
-  const filtrada = cola.filter(p => String(p.entrega) === String(tipo));
+  const filtrada = cola.filter((p) => String(p.entrega) === String(tipo));
   if (filtrada.length === 0) {
-    alert(tipo === "domicilio"
-      ? "📭 No hay pedidos de DOMICILIO en la cola"
-      : "📭 No hay pedidos de RECOGIDA en la cola"
+    alert(
+      tipo === "domicilio"
+        ? "📭 No hay pedidos de DOMICILIO en la cola"
+        : "📭 No hay pedidos de RECOGIDA en la cola"
     );
     return;
   }
 
-  console.log("🖨️ imprimirColaPorTipo()", tipo, "pedidos:", filtrada.length);
-  openPrintWindow(buildHtmlFromPedidos(filtrada));
+  console.log("🖨️ imprimirColaPorTipo()", tipo, "pedidos:", filtrada.length, "online:", isOnlineNow());
+  const html = await buildHtmlFromPedidosOnlineFirst(ctx, filtrada);
+  openPrintWindow(html);
 }
