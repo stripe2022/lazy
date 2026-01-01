@@ -1,6 +1,7 @@
 // app.js (ENTRY - módulo)
 import { initDB, importarProductos } from "./modules/dbIndexedDB.js";
 import { abrirPantalla, initBusqueda } from "./modules/ui.js";
+import { imprimirCola, imprimirColaPorTipo } from "./modules/imprimir.js";
 
 import {
   agregarProducto,
@@ -64,3 +65,6 @@ window.vaciarCola = vaciarCola;
 // Edición (aunque los botones se crean dentro de renderCola)
 window.editarPedidoEnCola = editarPedidoEnCola;
 window.cancelarEdicion = cancelarEdicion;
+
+window.imprimirCola = imprimirCola;                 // ✅ FIX
+window.imprimirColaPorTipo = imprimirColaPorTipo;   // ✅ FIX
