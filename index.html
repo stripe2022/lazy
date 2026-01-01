@@ -118,35 +118,15 @@
     <div id="colaLista"></div>
 
     <div class="card">
-      <!-- ✅ NUEVO: imprimir por separado -->
-      <button type="button" onclick="imprimirColaPorTipo('domicilio')">
-        🖨 Imprimir domicilios
-      </button>
-
-      <button type="button" onclick="imprimirColaPorTipo('tienda')">
-        🖨 Imprimir recogidas
-      </button>
-
-      <!-- (lo de siempre) -->
+      <button type="button" onclick="imprimirColaPorTipo('domicilio')">🖨 Imprimir domicilios</button>
+      <button type="button" onclick="imprimirColaPorTipo('tienda')">🖨 Imprimir recogidas</button>
       <button type="button" onclick="imprimirCola()">🖨 Imprimir cola</button>
-
-      <button type="button" onclick="vaciarCola()" class="danger">
-        🗑 Vaciar cola
-      </button>
+      <button type="button" onclick="vaciarCola()" class="danger">🗑 Vaciar cola</button>
     </div>
   </div>
 </section>
 
-<script>
-  function abrirPantalla(id) {
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-
-    if (id === 'pedido') document.dispatchEvent(new Event('pantalla1:open'));
-    if (id === 'cola') document.dispatchEvent(new Event('cola:open'));
-  }
-</script>
-
-<script src="app.js"></script>
+<!-- ✅ IMPORTANTE: ahora app.js es módulo -->
+<script type="module" src="app.js"></script>
 </body>
 </html>

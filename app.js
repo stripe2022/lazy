@@ -19,8 +19,22 @@
 const SUPABASE_URL = "PON_AQUI_TU_SUPABASE_URL";
 const SUPABASE_ANON_KEY = "PON_AQUI_TU_SUPABASE_ANON_KEY";
 
-// Printer key: NO va en el QR. Guardarla localmente.
-const PRINTER_KEY = localStorage.getItem("LAZY_PRINTER_KEY") || "PON_AQUI_TU_PRINTER_KEY";
+// ✅ Opción B: fallback hardcode + autorestore a localStorage
+const PRINTER_KEY_FALLBACK = "a9670d76f517cfbd329c01397234a1717c87cc22145ba3ea39da035f2219add4";
+
+let PRINTER_KEY = localStorage.getItem("LAZY_PRINTER_KEY");
+if (!PRINTER_KEY) {
+  PRINTER_KEY = PRINTER_KEY_FALLBACK;
+  try {
+    localStorage.setItem("LAZY_PRINTER_KEY", PRINTER_KEY);
+    console.log("🟢 PRINTER_KEY restaurada en localStorage (fallback).");
+  } catch (e) {
+    console.warn("🟠 No se pudo guardar PRINTER_KEY en localStorage:", e);
+  }
+} else {
+  console.log("🟢 PRINTER_KEY cargada desde localStorage.");
+}
+
 
 // Cliente Supabase
 const supabase = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
