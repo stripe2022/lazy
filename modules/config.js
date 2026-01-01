@@ -8,3 +8,26 @@ export const CONFIG = {
   PRINTER_KEY_FALLBACK: "a9670d76f517cfbd329c01397234a1717c87cc22145ba3ea39da035f2219add4",
   PRINTER_KEY_LS: "LAZY_PRINTER_KEY",
 };
+
+export function getPrinterKey() {
+  const LS_KEY = CONFIG.PRINTER_KEY_LS;
+
+  let key = (localStorage.getItem(LS_KEY) || "").trim();
+
+  if (!key) {
+    key = (CONFIG.PRINTER_KEY_FALLBACK || "").trim();
+
+    if (key) {
+      try {
+        localStorage.setItem(LS_KEY, key);
+        console.log("🟢 PRINTER_KEY restaurada desde CONFIG (…"+ key.slice(-6) +")");
+      } catch (e) {
+        console.warn("🟠 No se pudo guardar PRINTER_KEY en localStorage:", e);
+      }
+    }
+  } else {
+    console.log("🟢 PRINTER_KEY cargada desde localStorage (…"+ key.slice(-6) +")");
+  }
+
+  return key;
+}

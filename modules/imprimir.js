@@ -1,5 +1,7 @@
 // modules/imprimir.js
 import { leerCola } from "./cola.js";
+import { CONFIG, getPrinterKey } from "./config.js";
+
 
 // ================== utils ==================
 function escapeHtml(s) {
@@ -58,10 +60,7 @@ function buildPayloadFromPedido(p) {
   };
 }
 
-function getPrinterKeyFromStorage() {
-  // Guardas aquí la key (tú ya la estabas usando así)
-  return localStorage.getItem("LAZY_PRINTER_KEY") || "";
-}
+
 
 async function createReceiptInSupabase(ctx, payload) {
   const supabase = ctx?.supabase;
@@ -70,7 +69,8 @@ async function createReceiptInSupabase(ctx, payload) {
   if (!isOnlineNow()) throw new Error("Offline (sin internet)");
   if (!payload?.items?.length) throw new Error("Payload sin items");
 
-  const PRINTER_KEY = getPrinterKeyFromStorage();
+  const PRINTER_KEY = getPrinterKey();
+
   if (!PRINTER_KEY || PRINTER_KEY.length < 16) {
     throw new Error("PRINTER_KEY no encontrada en localStorage (LAZY_PRINTER_KEY)");
   }
@@ -103,6 +103,33 @@ async function createReceiptInSupabase(ctx, payload) {
 
   console.log("🟢[LAZY/SUPABASE] Recibo creado:", { receipt_id, token });
   return { receipt_id, token, raw: data };
+}
+
+/* =========================================================
+   ✅ NUEVO: QR como imagen (PNG dataURL) usando CDN "qrcode"
+   Requiere en index.html:
+   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+   ========================================================= */
+async function qrToDataUrl(text) {
+  if (!text) return null;
+
+  // librería global del CDN
+  if (!window.QRCode || typeof window.QRCode.toDataURL !== "function") {
+    console.warn("🟠[QR] Falta el CDN de qrcode. No se puede generar imagen.");
+    return null;
+  }
+
+  try {
+    // Ajusta width según tu impresión
+    return await window.QRCode.toDataURL(String(text), {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 180,
+    });
+  } catch (e) {
+    console.error("🔴[QR] Error generando PNG:", e);
+    return null;
+  }
 }
 
 // ================== impresión ==================
@@ -163,12 +190,32 @@ async function buildHtmlFromPedidosOnlineFirst(ctx, lista) {
     border-top:1px dashed #aaa;
     padding-top:6px;
     font-size:10px;
+    text-align:center;
   }
   .mono{
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     word-break: break-all;
   }
   .warn{ color:#b00020; font-weight:800; }
+
+  /* ✅ NUEVO: QR en imagen centrada */
+  .qrwrap{
+    margin-top:6px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  .qrimg{
+    width: 170px;
+    height: 170px;
+    object-fit: contain;
+  }
+  .qrtext{
+    margin-top:4px;
+    text-align:center;
+    font-size:9px;
+    opacity:.75;
+  }
 </style>
 </head>
 <body>
@@ -187,11 +234,19 @@ async function buildHtmlFromPedidosOnlineFirst(ctx, lista) {
 
     let qrText = "";
     let qrErr = "";
+    let qrImg = null;
 
     try {
       const payload = buildPayloadFromPedido(p);
       const created = await createReceiptInSupabase(ctx, payload);
       qrText = `LB|${created.receipt_id}|${created.token}`;
+
+      // ✅ convertir texto -> PNG dataURL
+      qrImg = await qrToDataUrl(qrText);
+      if (!qrImg) {
+        // si falla la imagen, al menos imprimimos el texto
+        console.warn("🟠[QR] No pude generar imagen, dejo texto.");
+      }
     } catch (e) {
       qrErr = e?.message || String(e);
       console.warn("🟠[PRINT] Sin QR (fallback):", qrErr);
@@ -227,16 +282,32 @@ async function buildHtmlFromPedidosOnlineFirst(ctx, lista) {
         <div class="row" style="font-weight:800;"><div><span class="tag">Total final:</span></div><div>$${totalFinal}</div></div>
       </div>
 
-      <div class="qrbox">
-        ${
-          qrText
-            ? `<div><span class="tag">QR:</span> <span class="mono">${escapeHtml(
-                qrText
-              )}</span></div>`
-            : `<div class="warn">SIN QR (offline o error)</div>
-               <div class="mono" style="opacity:.75;">${escapeHtml(qrErr || "desconocido")}</div>`
-        }
-      </div>
+      <div class="qrbox" style="text-align:center;">
+  ${
+    qrText
+      ? `
+        <div style="margin:6px 0;">
+        <img
+         src="${buildQrImageUrl(qrText, 70)}"
+        alt="QR"
+        style="width:60px;height:60px;"
+        />
+
+
+        </div>
+        <div class="mono" style="font-size:9px;opacity:.7;">
+          ${escapeHtml(qrText)}
+        </div>
+      `
+      : `
+        <div class="warn">SIN QR (offline o error)</div>
+        <div class="mono" style="opacity:.75;">
+          ${escapeHtml(qrErr || "desconocido")}
+        </div>
+      `
+  }
+</div>
+
     </div>
 `;
   }
@@ -284,3 +355,8 @@ export async function imprimirColaPorTipo(ctx, tipo) {
   const html = await buildHtmlFromPedidosOnlineFirst(ctx, filtrada);
   openPrintWindow(html);
 }
+function buildQrImageUrl(qrText, size = 180) {
+  const encoded = encodeURIComponent(qrText);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}`;
+}
+
