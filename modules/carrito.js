@@ -2,6 +2,7 @@
 import { state } from "./state.js";
 import { limpiarBusquedaYSelect } from "./ui.js";
 
+/* ================== CARRITO ================== */
 export function agregarProducto() {
   const select = document.getElementById("producto");
   const cantidadInput = document.getElementById("cantidad");
@@ -28,7 +29,7 @@ export function agregarProducto() {
 
   const existente = state.carrito.find(p => String(p.codigo) === String(producto.codigo));
   if (existente) existente.cantidad += cantidad;
-  else state.carrito.push({ ...producto, cantidad });
+  else state.carrito.push({ ...producto, cantidad }); // ✅ FIX
 
   renderizarCarrito();
   calcularTotales();
@@ -81,11 +82,12 @@ export function renderizarCarrito() {
         ✖️
       </button>
     `;
+
     contenedor.appendChild(div);
   });
 }
 
-// Entrega/envío
+/* ================== ENTREGA / TOTALES ================== */
 export function getEntregaSeleccionada() {
   const sel = document.querySelector('input[name="entrega"]:checked');
   return sel ? sel.value : "tienda";
@@ -150,4 +152,78 @@ export function initEntregaUI() {
   });
 
   refrescar();
+}
+
+/* ================== WHATSAPP PREVIEW (para tus onclick) ================== */
+function money(n) {
+  const x = Number(n) || 0;
+  return `$${Math.round(x)}`;
+}
+
+function getClienteInfo() {
+  return (document.getElementById("clienteInfo")?.value || "").trim();
+}
+
+function getResumenPedido() {
+  const entrega = getEntregaSeleccionada();
+  const envio = entrega === "domicilio"
+    ? normalizarEnvio(document.getElementById("envio")?.value)
+    : 0;
+  const totalProd = calcularTotalProductos();
+  const totalFinal = totalProd + envio;
+  return { entrega, envio, totalProd, totalFinal };
+}
+
+export function generarVistaPrevia() {
+  const box = document.getElementById("previewBox");
+  if (!box) return;
+
+  if (state.carrito.length === 0) {
+    box.innerHTML = `<div style="text-align:center; opacity:.7;">🛒 Carrito vacío</div>`;
+    return;
+  }
+
+  const cliente = getClienteInfo();
+  const { entrega, envio, totalProd, totalFinal } = getResumenPedido();
+
+  const lineas = [];
+  lineas.push(`🧾 *Barylie Pedido*`);
+  if (cliente) lineas.push(`👤 ${cliente}`);
+
+  lineas.push(``);
+  lineas.push(`🛍️ *Productos*`);
+  state.carrito.forEach((it) => {
+    const precio = Number(it.precioVenta) || 0;
+    const sub = precio * it.cantidad;
+    lineas.push(`• ${it.nombre}  x${it.cantidad}  =  ${money(sub)}`);
+  });
+
+  lineas.push(``);
+  lineas.push(`💰 *Total productos:* ${money(totalProd)}`);
+
+  if (entrega === "domicilio") {
+    lineas.push(`🛵 *Envío:* ${money(envio)}`);
+    lineas.push(`✅ *TOTAL FINAL:* ${money(totalFinal)}`);
+    lineas.push(`📍 Entrega: *Domicilio*`);
+  } else {
+    lineas.push(`📍 Entrega: *Recogida*`);
+    lineas.push(`✅ *TOTAL FINAL:* ${money(totalFinal)}`);
+  }
+
+  box.textContent = lineas.join("\n");
+}
+
+export function copiarVistaPrevia() {
+  const box = document.getElementById("previewBox");
+  if (!box) return;
+
+  const txt = (box.textContent || "").trim();
+  if (!txt || txt.includes("Aún no hay vista previa")) {
+    alert("Primero genera la vista previa.");
+    return;
+  }
+
+  navigator.clipboard.writeText(txt)
+    .then(() => alert("✅ Copiado para WhatsApp"))
+    .catch(() => alert("❌ No se pudo copiar"));
 }

@@ -1,90 +1,66 @@
-// ================== app.js (ENTRY POINT) ==================
-
-// ===== DB / Estado local =====
+// app.js (ENTRY - módulo)
 import { initDB, importarProductos } from "./modules/dbIndexedDB.js";
+import { abrirPantalla, initBusqueda } from "./modules/ui.js";
 
-// ===== UI =====
-import {
-  abrirPantalla,
-  generarVistaPrevia,
-  copiarVistaPrevia
-} from "./modules/ui.js";
-
-// ===== Carrito =====
 import {
   agregarProducto,
   eliminarProducto,
   setEnvio,
   initEntregaUI,
   renderizarCarrito,
-  calcularTotales
+  calcularTotales,
+  generarVistaPrevia,     // ✅ ahora existe
+  copiarVistaPrevia,      // ✅ ahora existe
 } from "./modules/carrito.js";
 
-// ===== Cola + Edición =====
 import {
   anadirACola,
   vaciarCola,
   renderCola,
   editarPedidoEnCola,
   cancelarEdicion,
-  refreshEditUI
+  refreshEditUI,
 } from "./modules/cola.js";
 
-// ==========================================================
-// ================== BOOTSTRAP APP ==========================
-// ==========================================================
-
 window.addEventListener("DOMContentLoaded", () => {
-  // Inicializar IndexedDB
+  // DB local
   initDB();
 
-  // Importar productos
-  document
-    .getElementById("importarProductosInput")
+  // importar productos
+  document.getElementById("importarProductosInput")
     ?.addEventListener("change", importarProductos);
+
+  // búsqueda lista (por si entras directo)
+  initBusqueda();
 });
 
-// ==========================================================
-// ================== EVENTOS DE PANTALLA ====================
-// ==========================================================
-
-// Cuando se abre la pantalla de pedido
 document.addEventListener("pantalla1:open", () => {
+  initBusqueda();
   initEntregaUI();
+  document.getElementById("busqueda")?.focus();
   renderizarCarrito();
   calcularTotales();
-
-  // 🔑 IMPORTANTE: refresca UI si estamos editando
-  refreshEditUI();
-
-  document.getElementById("busqueda")?.focus();
+  refreshEditUI(); // ✅ cambia el botón + muestra cancelar si editando
 });
 
-// Cuando se abre la pantalla de cola
 document.addEventListener("cola:open", () => {
   renderCola();
 });
 
-// ==========================================================
-// ================== EXPONER A HTML =========================
-// ==========================================================
-// (Necesario porque index.html usa onclick="...")
-
+/* ===== HTML hooks (onclick del index.html) ===== */
 window.abrirPantalla = abrirPantalla;
 
-// ---- carrito ----
 window.agregarProducto = agregarProducto;
 window.eliminarProducto = eliminarProducto;
 window.setEnvio = setEnvio;
 
-// ---- vista previa WhatsApp ----
+// ✅ Estos 2 arreglan tu error del index:
 window.generarVistaPrevia = generarVistaPrevia;
 window.copiarVistaPrevia = copiarVistaPrevia;
 
-// ---- cola ----
 window.anadirACola = anadirACola;
 window.vaciarCola = vaciarCola;
 
-// ---- edición ----
+// Edición (aunque los botones se crean dentro de renderCola)
 window.editarPedidoEnCola = editarPedidoEnCola;
 window.cancelarEdicion = cancelarEdicion;
