@@ -7,9 +7,108 @@
    PARTE 5: Vista previa WhatsApp + Texto plano
    PARTE 6: Cola de pedidos + Imprimir
    PARTE 7: ✅ EDITAR pedido en cola (cargar → modificar → guardar cambios)
+   PARTE 8: ✅ SUPABASE (NO LOGIN): crear receipt en server al imprimir, logs en consola
    ========================================================= */
 
-// ================== ESTADO GLOBAL ==================
+/* =========================================================
+   ✅ SUPABASE (NO LOGIN) — PRINTER KEY + RPC
+   Requiere en el HTML (antes de app.js):
+   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+   ========================================================= */
+
+const SUPABASE_URL = "PON_AQUI_TU_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "PON_AQUI_TU_SUPABASE_ANON_KEY";
+
+// Printer key: NO va en el QR. Guardarla localmente.
+const PRINTER_KEY = localStorage.getItem("LAZY_PRINTER_KEY") || "PON_AQUI_TU_PRINTER_KEY";
+
+// Cliente Supabase
+const supabase = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function logSB(...a){ console.log("🟣[LAZY/SUPABASE]", ...a); }
+function warnSB(...a){ console.warn("🟠[LAZY/SUPABASE]", ...a); }
+function errSB(...a){ console.error("🔴[LAZY/SUPABASE]", ...a); }
+
+function supabaseReady() {
+  const ok = !!(supabase && SUPABASE_URL && SUPABASE_ANON_KEY && PRINTER_KEY && PRINTER_KEY.length >= 16);
+  if (!ok) {
+    warnSB("Config incompleta:", {
+      hasClient: !!supabase,
+      hasUrl: !!SUPABASE_URL,
+      hasAnon: !!SUPABASE_ANON_KEY,
+      hasPrinterKey: !!PRINTER_KEY,
+      printerKeyLen: (PRINTER_KEY || "").length
+    });
+  }
+  return ok;
+}
+function isOnlineNow(){ return navigator.onLine === true; }
+
+// Tus precios siempre enteros ✅. Igual guardamos numeric(12,2) en server.
+function getUnitPrice(it) {
+  const n = Number(it?.precioVenta ?? it?.precio ?? it?.price ?? it?.unit_price ?? 0);
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
+}
+// ✅ Confirmado en tu JSON: costo = precioCosto
+function getUnitCost(it) {
+  const n = Number(it?.precioCosto ?? it?.costo ?? it?.unit_cost ?? it?.cost ?? 0);
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 0;
+}
+function mapEntregaToType(entrega) {
+  return (String(entrega) === "domicilio") ? "delivery" : "pickup";
+}
+
+function buildSupabasePayloadFromPedido(p) {
+  const type = mapEntregaToType(p?.entrega);
+  const delivery_fee = (type === "delivery")
+    ? Math.max(0, Math.trunc(Number(p?.envio) || 0))
+    : 0;
+
+  const itemsRaw = Array.isArray(p?.items) ? p.items : [];
+  const items = itemsRaw.map(it => ({
+    product_code: it?.codigo != null ? String(it.codigo) : null,
+    name: String(it?.nombre || "").trim(),
+    unit_price: getUnitPrice(it),
+    unit_cost: getUnitCost(it),
+    qty: Math.max(1, parseInt(it?.cantidad, 10) || 1),
+  })).filter(x => x.name && x.qty > 0);
+
+  return {
+    type,
+    info: String(p?.clienteInfo || "").trim(),
+    delivery_fee,
+    note: "",
+    source_app: "lazy",
+    items
+  };
+}
+
+async function supabaseCreateReceipt(payload) {
+  if (!supabaseReady()) throw new Error("Supabase no configurado.");
+  if (!isOnlineNow()) throw new Error("Sin internet.");
+  if (!payload?.items?.length) throw new Error("Payload sin items.");
+  if (!payload.type) throw new Error("Payload sin type.");
+
+  logSB("➡️ RPC public_create_receipt payload:", payload);
+
+  const { data, error } = await supabase.rpc("public_create_receipt", {
+    p_printer_key: PRINTER_KEY,
+    p_payload: payload
+  });
+
+  if (error) {
+    errSB("❌ public_create_receipt error:", error);
+    throw new Error(error.message || "RPC error");
+  }
+
+  logSB("✅ Recibo creado:", data);
+  return data; // {receipt_id, token, subtotal, total, ...}
+}
+
+/* =========================================================
+   ================== ESTADO GLOBAL ==================
+   ========================================================= */
+
 let db = null;
 
 let productos = [];          // todos los productos en DB
@@ -20,7 +119,10 @@ let carrito = [];            // [{...producto, cantidad}]
 // ===== EDICIÓN =====
 let editingId = null;        // si no es null => estamos editando un pedido de la cola
 
-// ================== DB ==================
+/* =========================================================
+   ================== DB ==================
+   ========================================================= */
+
 function initDB() {
   const request = indexedDB.open("barylieDB", 2);
 
@@ -42,7 +144,10 @@ function initDB() {
   };
 }
 
-// ================== CARGAR PRODUCTOS ==================
+/* =========================================================
+   ================== CARGAR PRODUCTOS ==================
+   ========================================================= */
+
 function cargarProductosDesdeDB() {
   if (!db) return;
 
@@ -66,7 +171,10 @@ function actualizarTotalProductosUI() {
   if (totalEl) totalEl.textContent = String(productos.length);
 }
 
-// ================== SELECT (índices consistentes) ==================
+/* =========================================================
+   ================== SELECT (índices consistentes) ==================
+   ========================================================= */
+
 function poblarSelectConLista(lista) {
   const select = document.getElementById("producto");
   if (!select) return;
@@ -85,7 +193,10 @@ function poblarSelectConLista(lista) {
   });
 }
 
-// ================== PARTE 2: BÚSQUEDA ==================
+/* =========================================================
+   ================== PARTE 2: BÚSQUEDA ==================
+   ========================================================= */
+
 function getProductosFiltrados(texto) {
   const q = (texto || "").trim().toLowerCase();
   if (!q) return productos.slice();
@@ -115,7 +226,10 @@ function limpiarBusquedaYSelect() {
   busq.focus();
 }
 
-// ================== PARTE 3: CARRITO ==================
+/* =========================================================
+   ================== PARTE 3: CARRITO ==================
+   ========================================================= */
+
 function agregarProducto() {
   const select = document.getElementById("producto");
   const cantidadInput = document.getElementById("cantidad");
@@ -205,14 +319,16 @@ function renderizarCarrito() {
   });
 }
 
-// ================== PARTE 4: ENTREGA + ENVÍO + TOTALES ==================
+/* =========================================================
+   ================== PARTE 4: ENTREGA + ENVÍO + TOTALES ==================
+   ========================================================= */
+
 function getEntregaSeleccionada() {
   const sel = document.querySelector('input[name="entrega"]:checked');
   return sel ? sel.value : "tienda";
 }
 
 function normalizarEnvio(valor) {
-  // entero >= 0
   let n = parseInt(valor, 10);
   if (Number.isNaN(n) || n < 0) n = 0;
   return n;
@@ -261,7 +377,7 @@ function initEntregaUI() {
     bloqueEnvio.style.display = esDomicilio ? "block" : "none";
 
     if (!esDomicilio && envioInput) {
-      envioInput.value = ""; // limpia cuando no es domicilio
+      envioInput.value = "";
     }
 
     calcularTotales();
@@ -274,10 +390,13 @@ function initEntregaUI() {
     calcularTotales();
   });
 
-  refrescar(); // inicial
+  refrescar();
 }
 
-// ================== IMPORTAR PRODUCTOS ==================
+/* =========================================================
+   ================== IMPORTAR PRODUCTOS ==================
+   ========================================================= */
+
 function importarProductos(event) {
   const file = event.target.files?.[0];
   if (!file || !db) return;
@@ -326,7 +445,10 @@ function importarProductos(event) {
   reader.readAsText(file);
 }
 
-// ================== HOOKS ==================
+/* =========================================================
+   ================== HOOKS ==================
+   ========================================================= */
+
 window.addEventListener("DOMContentLoaded", () => {
   initDB();
 
@@ -350,7 +472,10 @@ document.addEventListener("pantalla1:open", () => {
   setModoEdicionUI(!!editingId);
 });
 
-// ================== PARTE 5: VISTA PREVIA WHATSAPP + TEXTO PLANO ==================
+/* =========================================================
+   ================== PARTE 5: VISTA PREVIA WHATSAPP + TEXTO PLANO ==================
+   ========================================================= */
+
 function money(n) {
   const x = Number(n) || 0;
   return `$${Math.round(x)}`;
@@ -430,7 +555,6 @@ function copiarVistaPrevia() {
     .catch(() => alert("❌ No se pudo copiar"));
 }
 
-// ===== Texto plano (si existe textarea en tu HTML; si no, no rompe) =====
 function generarTextoPlano() {
   const ta = document.getElementById("textoPlano");
   if (!ta) return;
@@ -485,7 +609,10 @@ function copiarTextoPlano() {
     .catch(() => alert("❌ No se pudo copiar"));
 }
 
-// ================== PARTE 6: COLA DE PEDIDOS ==================
+/* =========================================================
+   ================== PARTE 6: COLA DE PEDIDOS ==================
+   ========================================================= */
+
 const COLA_KEY = "barylie_cola_pedidos_v1";
 
 function uuidLite() {
@@ -523,24 +650,20 @@ function limpiarPedidoActual() {
 
   limpiarBusquedaYSelect();
 
-  // entrega/envío
   const radioTienda = document.querySelector('input[name="entrega"][value="tienda"]');
   if (radioTienda) radioTienda.checked = true;
 
   const envioInput = document.getElementById("envio");
   if (envioInput) envioInput.value = "";
 
-  // vista previa / texto plano
   const box = document.getElementById("previewBox");
   if (box) box.innerHTML = `<div style="opacity:.7; text-align:center;">Aún no hay vista previa</div>`;
 
   const ta = document.getElementById("textoPlano");
   if (ta) ta.value = "";
 
-  // refresca UI entrega
   if (typeof initEntregaUI === "function") initEntregaUI();
 
-  // UI edición
   setModoEdicionUI(!!editingId);
 }
 
@@ -593,7 +716,10 @@ function buildPlainTextFromPedido(pedido) {
   return out.join("\n");
 }
 
-// ================== PARTE 7: ✅ EDICIÓN EN COLA ==================
+/* =========================================================
+   ================== PARTE 7: ✅ EDICIÓN EN COLA ==================
+   ========================================================= */
+
 function getBtnAccionCola() {
   return document.querySelector('#pedido button[onclick="anadirACola()"]');
 }
@@ -650,6 +776,8 @@ function cargarPedidoEnFormulario(pedido) {
     codigo: it.codigo,
     nombre: it.nombre,
     precioVenta: Number(it.precioVenta) || 0,
+    // ✅ costo desde JSON: precioCosto
+    precioCosto: Number(it.precioCosto ?? it.costo ?? 0) || 0,
     cantidad: Number(it.cantidad) || 0
   })).filter(x => x.nombre && x.cantidad > 0);
 
@@ -717,6 +845,8 @@ function guardarCambiosEnCola() {
       codigo: it.codigo,
       nombre: it.nombre,
       precioVenta: Number(it.precioVenta) || 0,
+      // ✅ costo
+      precioCosto: Number(it.precioCosto ?? 0) || 0,
       cantidad: Number(it.cantidad) || 0,
     })),
   };
@@ -734,9 +864,11 @@ function guardarCambiosEnCola() {
   renderCola();
 }
 
-// ================== AÑADIR A COLA (CREAR o GUARDAR CAMBIOS) ==================
+/* =========================================================
+   ================== AÑADIR A COLA (CREAR o GUARDAR CAMBIOS) ==================
+   ========================================================= */
+
 function anadirACola() {
-  // ✅ Si estamos editando, guardamos cambios
   if (editingId) {
     guardarCambiosEnCola();
     return;
@@ -766,6 +898,8 @@ function anadirACola() {
       codigo: it.codigo,
       nombre: it.nombre,
       precioVenta: Number(it.precioVenta) || 0,
+      // ✅ costo: si el producto tiene precioCosto, lo guardamos aquí desde ya
+      precioCosto: Number(it.precioCosto ?? 0) || 0,
       cantidad: Number(it.cantidad) || 0,
     })),
   };
@@ -797,7 +931,10 @@ function copiarTexto(txt, okMsg) {
     .catch(() => alert("❌ No se pudo copiar"));
 }
 
-// ================== RENDER COLA (con Editar) ==================
+/* =========================================================
+   ================== RENDER COLA (con Editar) ==================
+   ========================================================= */
+
 function renderCola() {
   const cont = document.getElementById("colaLista");
   if (!cont) return;
@@ -809,7 +946,6 @@ function renderCola() {
     return;
   }
 
-  // Más nuevo arriba
   const orden = cola.slice().sort((a,b) => (b.ts||0) - (a.ts||0));
 
   cont.innerHTML = "";
@@ -846,12 +982,14 @@ function renderCola() {
   });
 }
 
-// Refrescar cola cuando entras a la pantalla
 document.addEventListener("cola:open", () => {
   renderCola();
 });
 
-// ================== IMPRIMIR COLA (TODOS LOS PEDIDOS) ==================
+/* =========================================================
+   ================== IMPRIMIR COLA (TODOS LOS PEDIDOS) ==================
+   ========================================================= */
+
 function escapeHtml(s) {
   return String(s ?? "")
     .replaceAll("&", "&amp;")
@@ -867,10 +1005,9 @@ function imprimirCola() {
     alert("📭 La cola está vacía");
     return;
   }
-  imprimirListaPedidos(cola);
+  imprimirListaPedidos(cola).catch(e => console.error("🔴[PRINT]", e));
 }
 
-// ================== IMPRIMIR COLA POR TIPO (DOMICILIO / RECOGIDA) ==================
 function imprimirColaPorTipo(tipo) {
   const cola = leerCola();
   if (!cola || cola.length === 0) {
@@ -888,12 +1025,19 @@ function imprimirColaPorTipo(tipo) {
     return;
   }
 
-  imprimirListaPedidos(filtrada);
+  imprimirListaPedidos(filtrada).catch(e => console.error("🔴[PRINT]", e));
 }
 
-// ===== Motor común de impresión =====
-function imprimirListaPedidos(lista) {
+/* =========================================================
+   ===== Motor común de impresión (ONLINE-FIRST + fallback) =====
+   - Intenta crear receipt en Supabase para cada pedido.
+   - Si ok => imprime texto QR LB|id|token
+   - Si falla => imprime SIN QR y log de error en consola.
+   ========================================================= */
+
+async function imprimirListaPedidos(lista) {
   const orden = (lista || []).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  logSB("🖨️ imprimirListaPedidos() pedidos:", orden.length, "online:", isOnlineNow());
 
   let html = `
 <!DOCTYPE html>
@@ -925,12 +1069,25 @@ function imprimirListaPedidos(lista) {
   .totales{ margin-top:4px; border-top:1px dashed #aaa; padding-top:4px; }
   .totales .row{ margin:1px 0; }
   .tag{ font-weight:700; }
+
+  .qrbox{
+    margin-top:6px;
+    border-top:1px dashed #aaa;
+    padding-top:6px;
+    font-size:10px;
+  }
+  .mono{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    word-break: break-all;
+  }
+  .warn{ color:#b00020; font-weight:800; }
 </style>
 </head>
 <body>
 `;
 
-  orden.forEach((p) => {
+  // ✅ for...of para poder await
+  for (const p of orden) {
     const cliente = p.clienteInfo || "—";
     const entregaTxt = p.entrega === "domicilio" ? "Domicilio" : "Recogida";
 
@@ -940,6 +1097,38 @@ function imprimirListaPedidos(lista) {
     const totalFinal = Math.round(
       Number(p.totalFinal) || (totalProd + (p.entrega === "domicilio" ? envio : 0))
     );
+
+    let qrText = null;
+    let supabaseError = null;
+
+    try {
+      const payload = buildSupabasePayloadFromPedido(p);
+
+      logSB("🧾 Pedido -> payload resumen:", {
+        entrega: p.entrega,
+        type: payload.type,
+        items: payload.items.length,
+        delivery_fee: payload.delivery_fee,
+        infoLen: (payload.info || "").length
+      });
+
+      const created = await supabaseCreateReceipt(payload);
+
+      const receipt_id = created?.receipt_id || null;
+      const token = created?.token || null;
+
+      if (receipt_id && token) {
+        qrText = `LB|${receipt_id}|${token}`;
+        logSB("📌 QR listo:", qrText);
+      } else {
+        supabaseError = "Respuesta RPC sin receipt_id/token";
+        warnSB("⚠️", supabaseError, created);
+      }
+
+    } catch (e) {
+      supabaseError = e?.message || String(e);
+      errSB("❌ Supabase fallo en este pedido:", { cliente, entrega: p.entrega, error: supabaseError });
+    }
 
     html += `
     <div class="pedido">
@@ -966,9 +1155,17 @@ function imprimirListaPedidos(lista) {
           : ``}
         <div class="row" style="font-weight:800;"><div><span class="tag">Total final:</span></div><div>$${totalFinal}</div></div>
       </div>
+
+      <div class="qrbox">
+        ${qrText
+          ? `<div><span class="tag">QR:</span> <span class="mono">${escapeHtml(qrText)}</span></div>`
+          : `<div class="warn">SIN QR (offline o error)</div>
+             <div class="mono" style="opacity:.75;">${escapeHtml(supabaseError || "desconocido")}</div>`
+        }
+      </div>
     </div>
 `;
-  });
+  }
 
   html += `
 </body>
