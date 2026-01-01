@@ -1,0 +1,10 @@
+// modules/config.js
+export const CONFIG = {
+  // Pega aquí tu URL y ANON
+  SUPABASE_URL: "PON_AQUI_TU_SUPABASE_URL",
+  SUPABASE_ANON_KEY: "PON_AQUI_TU_SUPABASE_ANON_KEY",
+
+  // Opción B: fallback hardcode
+  PRINTER_KEY_FALLBACK: "a9670d76f517cfbd329c01397234a1717c87cc22145ba3ea39da035f2219add4",
+  PRINTER_KEY_LS: "LAZY_PRINTER_KEY",
+};
