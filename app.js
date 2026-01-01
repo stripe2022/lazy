@@ -6,57 +6,60 @@ import { initDB, importarProductos } from "./modules/dbIndexedDB.js";
 import { abrirPantalla, initBusqueda } from "./modules/ui.js";
 
 import {
-  agregarProducto,
-  eliminarProducto,
-  setEnvio,
-  calcularTotales,
-  initEntregaUI,
-  renderizarCarrito
+  agregarProducto, eliminarProducto,
+  setEnvio, calcularTotales, initEntregaUI, renderizarCarrito
 } from "./modules/carrito.js";
 
-import { anadirACola, vaciarCola, renderCola } from "./modules/cola.js";
+import { anadirACola, vaciarCola, renderCola, refreshEdicionUI } from "./modules/cola.js";
 
 import { createSupabaseClient } from "./modules/supabaseClient.js";
 import { imprimirCola, imprimirColaPorTipo } from "./modules/imprimir.js";
-
-// ✅ (si ya creaste preview.js como te pasé)
-import { generarVistaPrevia, copiarVistaPrevia } from "./modules/preview.js";
 
 // Contexto supabase que le pasamos a imprimir
 const ctx = {
   supabase: null,
   SUPABASE_URL: CONFIG.SUPABASE_URL,
-  SUPABASE_ANON_KEY: CONFIG.SUPABASE_ANON_KEY,
-  // opcional si lo necesitas en imprimir/supabase:
-  PRINTER_KEY: CONFIG.PRINTER_KEY || null
+  SUPABASE_ANON_KEY: CONFIG.SUPABASE_ANON_KEY
 };
 
+// ✅ Evita doble listener de búsqueda (si llamas initBusqueda varias veces)
+function ensureBusquedaBound() {
+  const input = document.getElementById("busqueda");
+  if (!input) return;
+  if (input.dataset.bound === "1") return;
+  initBusqueda();
+  input.dataset.bound = "1";
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
-  // 1) DB local (productos)
+  // DB local
   initDB();
 
-  // 2) importar productos
+  // importar productos
   const inputImportar = document.getElementById("importarProductosInput");
   if (inputImportar) inputImportar.addEventListener("change", importarProductos);
 
-  // 3) Supabase client
+  // Supabase client
   try {
     ctx.supabase = await createSupabaseClient();
-    logUI("✅ Supabase client OK");
+    logUI("Supabase client OK");
   } catch (e) {
-    warnSB("⚠️ No pude iniciar Supabase client:", e?.message || e);
+    warnSB("No pude iniciar Supabase client:", e?.message || e);
   }
 
-  // 4) Prepara listeners UI (aunque el listado real se refresca en pantalla1:open)
-  initBusqueda();
+  // listeners UI
+  ensureBusquedaBound();
 });
 
 document.addEventListener("pantalla1:open", () => {
-  initBusqueda();
+  ensureBusquedaBound();
   initEntregaUI();
   document.getElementById("busqueda")?.focus();
   renderizarCarrito();
   calcularTotales();
+
+  // ✅ Esto es CLAVE para que se refleje el modo edición
+  refreshEdicionUI();
 });
 
 document.addEventListener("cola:open", () => {
@@ -70,14 +73,8 @@ window.agregarProducto = agregarProducto;
 window.eliminarProducto = eliminarProducto;
 window.setEnvio = setEnvio;
 
-window.generarVistaPrevia = generarVistaPrevia;
-window.copiarVistaPrevia = copiarVistaPrevia;
-
 window.anadirACola = anadirACola;
 window.vaciarCola = vaciarCola;
 
-window.imprimirCola = () =>
-  imprimirCola(ctx).catch(e => console.error("🔴[PRINT]", e));
-
-window.imprimirColaPorTipo = (tipo) =>
-  imprimirColaPorTipo(ctx, tipo).catch(e => console.error("🔴[PRINT]", e));
+window.imprimirCola = () => imprimirCola(ctx).catch(e => console.error("🔴[PRINT]", e));
+window.imprimirColaPorTipo = (tipo) => imprimirColaPorTipo(ctx, tipo).catch(e => console.error("🔴[PRINT]", e));
